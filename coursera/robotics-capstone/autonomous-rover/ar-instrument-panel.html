@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+<!--
+  IAmContent Public Libraries.
+  Copyright (C) 2016 Greg Elderfield
+  @author Greg Elderfield, support@jarchitect.co.uk
+ 
+  This program is free software; you can redistribute it and/or modify it under the terms of the
+  GNU General Public License as published by the Free Software Foundation; either version 2 of 
+  the License, or (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+  without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+  See the GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License along with this program;
+  if not, write to the Free Software Foundation, Inc., 
+  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+-->
+<head>
+<meta charset="utf-8" />
+<script src="http://cdn.robotwebtools.org/EventEmitter2/current/eventemitter2.min.js"></script>
+<script src="http://cdn.robotwebtools.org/roslibjs/current/roslib.min.js"></script>
+<script src="http://code.jquery.com/jquery-1.4.4.min.js"></script>
+<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+<script>
+	// Set your IP address here:
+	var ROBOT_IP_ADDRESS = "192.168.1.252";
+	var MAX_VEL = 0.12;
+	var MAX_OMEGA = 2.0;
+	var MAX_IMU_OMEGA = 5.0;
+	var GUAGE_ANIMATION_CONFIG = {duration: 10}; // milliseconds
+	
+	// A Guage class
+	function Guage(id, options) {
+		this.options = options;
+		this.data = google.visualization.arrayToDataTable([['Label', 'Value'], [options.label, 0.0]]);
+		this.guage = new google.visualization.Gauge($("#" + id)[0]);
+		this.setValue = function(v) {
+			this.data.setValue(0, 1, v);
+			this.guage.draw(this.data, this.options);
+		};
+	}
+	var velGuage = null;
+	var omegaGuage = null;
+	var imuGuage = null;
+
+	// On page load..
+	$(function() {
+	
+		// Manage the ROS connection
+		var ros = new ROSLIB.Ros();
+	
+		ros.on('error', function(error) {
+			$('#connecting').hide();
+			$('#connected').hide();
+			$('#closed').hide();
+			$('#error').show();
+			console.log(error);
+		});
+	
+		ros.on('connection', function() {
+			console.log('Connection made!');
+			$('#connecting').hide();
+			$('#error').hide();
+			$('#closed').hide();
+			$('#connected').show();
+		});
+	
+		ros.on('close', function() {
+			console.log('Connection closed.');
+			$('#connecting').hide();
+			$('#connected').hide();
+			$('#closed').show();
+		});
+	
+		ros.connect("ws://" + ROBOT_IP_ADDRESS + ":9090");
+		
+		
+		// Create the Guages
+		google.charts.load('current', {'packages':['gauge']});
+		google.charts.setOnLoadCallback(initGuages);
+		
+		var GUAGE_SIZE = 150;
+        var velGuageOptions = {
+        	label: "V",
+            animation: GUAGE_ANIMATION_CONFIG,
+	        width: GUAGE_SIZE, height: GUAGE_SIZE,
+	        yellowFrom:0.7*MAX_VEL, yellowTo: 0.8*MAX_VEL,
+	        redFrom: 0.8*MAX_VEL, redTo: MAX_VEL,
+	        min: 0.0, max: MAX_VEL
+        };
+        var omegaGuageOptions = {
+            label: "w",
+            animation: GUAGE_ANIMATION_CONFIG,
+            animation: {duration: 50},
+	        width: GUAGE_SIZE, height: GUAGE_SIZE,
+	        min: MAX_OMEGA, max: -MAX_OMEGA              // Note the reversed direction to match our robot coordinate frame
+        };
+        var imuGuageOptions = {
+                label: "w",
+                animation: GUAGE_ANIMATION_CONFIG,
+    	        width: GUAGE_SIZE, height: GUAGE_SIZE,
+    	        min: MAX_IMU_OMEGA, max: -MAX_IMU_OMEGA  // Note the reversed direction to match our robot coordinate frame
+            };
+        
+		function initGuages() {
+			velGuage = new Guage("vel-guage-holder", velGuageOptions);
+			omegaGuage = new Guage("omega-guage-holder", omegaGuageOptions);
+			imuGuage = new Guage("imu-guage-holder", imuGuageOptions);
+
+			velGuage.setValue(0.0);
+			omegaGuage.setValue(0.0);
+			imuGuage.setValue(0.0);
+		}
+		
+		
+		// Build the tag table
+		var TAG_COUNT = 16;
+		$("#tag-image-holder").attr("rowspan", TAG_COUNT + 1);
+		for (var v=0; v<TAG_COUNT; v++) {
+			$("#tag-data").append(
+					"<tr id='tag-" + v + "'>" 
+		              + "<th class='tag-id'>" + v + "</th>"
+		              + "<td class='tag-num-val' id='num-val-position-x-" + v + "'></td>"
+		              + "<td class='tag-num-val' id='num-val-position-y-" + v + "'></td>"
+		              + "<td class='tag-num-val' id='num-val-position-z-" + v + "'></td>"
+		              + "<td class='tag-num-val' id='num-val-orientation-x-" + v + "'></td>"
+		              + "<td class='tag-num-val' id='num-val-orientation-y-" + v + "'></td>"
+		              + "<td class='tag-num-val' id='num-val-orientation-z-" + v + "'></td>"
+		              + "<td class='tag-num-val' id='num-val-orientation-w-" + v + "'></td>"
+				  + "</tr>");
+		}
+		
+		// Monitor the tag detection images
+		$("#tag-detections").attr("src", "http://" + ROBOT_IP_ADDRESS + ":8080/stream?topic=/camera/tag_detections_image?invert=true");
+		
+		// Monitor the tag detection data
+		var tagData = new ROSLIB.Topic({
+			ros : ros,
+			name : '/camera/tag_detections',
+			messageType : 'apriltags_ros/AprilTagDetectionArray'
+		});
+	
+		var PRECISION = 1000.0;
+		function precis(x) {
+			return Math.round(x * PRECISION) / PRECISION
+		}
+		
+		tagData.subscribe(function(message) {
+			function displayTagData(tag) {
+				var tagId = tag.id;
+				var pose = tag.pose.pose;
+				var position = pose.position;
+				var orientation = pose.orientation;
+				$("#num-val-position-x-" + tagId).text(precis(position.x));
+				$("#num-val-position-y-" + tagId).text(precis(position.y));
+				$("#num-val-position-z-" + tagId).text(precis(position.z));
+				$("#num-val-orientation-x-" + tagId).text(precis(orientation.x));
+				$("#num-val-orientation-y-" + tagId).text(precis(orientation.y));
+				$("#num-val-orientation-z-" + tagId).text(precis(orientation.z));
+				$("#num-val-orientation-w-" + tagId).text(precis(orientation.w));
+			}
+			$("#tag-data .tag-num-val").text(""); // Clear all data
+			// Write tag data
+			var tags = message.detections;
+			for (var t=0; t<tags.length; t++)
+				displayTagData(tags[t]);
+		});
+		
+		// Monitor the commanded velocity topic
+		var cmdVel = new ROSLIB.Topic({
+			ros : ros,
+			name : '/cmd_vel',
+			messageType : 'geometry_msgs/Twist'
+		});
+	
+		cmdVel.subscribe(function(message) {
+			velGuage.setValue(message.linear.x);
+			omegaGuage.setValue(message.angular.z);
+		});
+		
+		// Monitor the IMU topic
+		var imu = new ROSLIB.Topic({
+			ros : ros,
+			name : '/imu',
+			messageType : 'sensor_msgs/Imu'
+		});
+	
+		imu.subscribe(function(message) {
+			imuGuage.setValue(message.angular_velocity.z);
+		});
+	});
+</script>
+<style type="text/css">
+	table, table th, table td {
+	  border-collapse: collapse;
+	  border: 1px solid;
+	  font-size: 10pt;
+	  text-align: center;
+	  padding: 2px 4px;
+	}
+	.num-label {
+	  width: 80px;
+	}
+</style>
+</head>
+
+<body>
+	<table id="status-and-controls">
+		<tr>
+			<th>Connection Status</th>
+			<th colspan="2">Commanded Velocity</th>
+			<th>IMU</th>
+		</tr>
+		<tr>
+			<td>
+				<p id="connecting">Connecting to rosbridge...</p>
+				<p id="connected" style="color: #00D600; display: none">Connected!</p>
+				<p id="error" style="color: #FF0000; display: none">Some sort of error has occurred!</p>
+				<p id="closed" style="display: none">Connection closed.</p>
+			</td>
+			<td><div id="vel-guage-holder"></div></td>
+			<td><div id="omega-guage-holder"></div></td>
+			<td><div id="imu-guage-holder"></div></td>
+		</tr>
+	</table>
+	<br/>
+	<table id="tag-data">
+		<tr>
+			<th rowspan="2">Image</th>
+			<th rowspan="2">Tag id</th>
+			<th colspan="3">Pose</th>
+			<th colspan="4">Orientation</th>
+		</tr>
+		<tr>
+			<th class="num-label">x</th>
+			<th class="num-label">y</th>
+			<th class="num-label">z</th>
+			<th class="num-label">x</th>
+			<th class="num-label">y</th>
+			<th class="num-label">z</th>
+			<th class="num-label">w</th>
+		</tr>
+		<tr>
+		  <td id="tag-image-holder"><img id="tag-detections"/></td>
+		</tr>
+	</table>
+	
+</body>
+</html>
