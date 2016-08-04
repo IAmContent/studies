@@ -24,10 +24,16 @@ Download the HTML file to your local PC, search for the line containing ROBOT\_I
 
 ## Use
 
-1. Start your ROS server/robot node in the usual way (via roslaunch robot_launch robot.launch).
-2. In a new shell, start the rosbridge: roslaunch rosbridge\_server rosbridge\_websocket.launch
-3. In another new shell, start the mjpeg\_server: rosrun mjpeg\_server mjpeg\_server
-4. Open up the HTML page in a browser.
+1 Start your ROS server/robot node in the usual way:
+
+    roslaunch robot_launch robot.launch
+2 In a new shell, start the rosbridge:
+
+    roslaunch rosbridge\_server rosbridge\_websocket.launch
+3 In another new shell, start the mjpeg\_server:
+
+    rosrun mjpeg\_server mjpeg\_server
+4 Open up the HTML page in a browser.
 
 You should see something like this:
   
