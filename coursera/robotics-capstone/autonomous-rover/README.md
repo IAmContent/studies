@@ -2,8 +2,8 @@
 
 If you are trying to debug your AR, I've created an HTML page that can be used to monitor some of its state. It relies on two additional ROS components:
 
-    rosbridge - see [http://wiki.ros.org/rosbridge_suite](http://wiki.ros.org/rosbridge_suite)
-    mjpeg_server - see [http://wiki.ros.org/mjpeg_server](http://wiki.ros.org/mjpeg_server)
+* rosbridge - see [http://wiki.ros.org/rosbridge_suite](http://wiki.ros.org/rosbridge_suite)
+* mjpeg\_server - see [http://wiki.ros.org/mjpeg_server](http://wiki.ros.org/mjpeg_server)
 
 Once these are running, the web page can be loaded in a browser to show:
 
@@ -20,14 +20,14 @@ As per the above ROS pages:
     sudo apt-get install ros-indigo-mjpeg-server
     source /opt/ros/indigo/setup.bash
 
-Download the HTML file to your local PC, search for the line containing ROBOT_IP_ADDRESS and edit the string so that it is the IP address of your AR.
+Download the HTML file to your local PC, search for the line containing ROBOT\_IP\_ADDRESS and edit the string so that it is the IP address of your AR.
 
 ## Use
 
-* Start your ROS server/robot node in the usual way (via roslaunch robot_launch robot.launch).
-* In a new shell, start the rosbridge: roslaunch rosbridge_server rosbridge_websocket.launch
-* In another new shell, start the mjpeg_server: rosrun mjpeg_server mjpeg_server
-* Open up the HTML page in a browser.
+1. Start your ROS server/robot node in the usual way (via roslaunch robot_launch robot.launch).
+2. In a new shell, start the rosbridge: roslaunch rosbridge\_server rosbridge\_websocket.launch
+3. In another new shell, start the mjpeg\_server: rosrun mjpeg\_server mjpeg\_server
+4. Open up the HTML page in a browser.
 
 You should see something like this:
   
