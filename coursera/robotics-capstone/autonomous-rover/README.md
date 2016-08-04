@@ -2,8 +2,8 @@
 
 If you are trying to debug your AR, I've created an HTML page that can be used to monitor some of its state. It relies on two additional ROS components:
 
-* rosbridge - see [http://wiki.ros.org/rosbridge_suite](http://wiki.ros.org/rosbridge_suite)
-* mjpeg\_server - see [http://wiki.ros.org/mjpeg_server](http://wiki.ros.org/mjpeg_server)
+* rosbridge - see http://wiki.ros.org/rosbridge_suite
+* mjpeg\_server - see http://wiki.ros.org/mjpeg_server
 
 Once these are running, the web page can be loaded in a browser to show:
 
@@ -34,5 +34,3 @@ You should see something like this:
 <img src="ar-monitoring-example.png" alt="Browser Screenshot" width="600px"/>
 
 There is a quick demo video at https://youtu.be/RYV304ASTuk
-
-<iframe width="420" height="315" src="https://www.youtube.com/embed/RYV304ASTuk" frameborder="0" allowfullscreen></iframe>
