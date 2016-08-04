@@ -29,10 +29,10 @@ Download the HTML file to your local PC, search for the line containing ROBOT\_I
     roslaunch robot_launch robot.launch
 2 In a new shell, start the rosbridge:
 
-    roslaunch rosbridge\_server rosbridge\_websocket.launch
+    roslaunch rosbridge_server rosbridge_websocket.launch
 3 In another new shell, start the mjpeg\_server:
 
-    rosrun mjpeg\_server mjpeg\_server
+    rosrun mjpeg_server mjpeg_server
 4 Open up the HTML page in a browser.
 
 You should see something like this:
