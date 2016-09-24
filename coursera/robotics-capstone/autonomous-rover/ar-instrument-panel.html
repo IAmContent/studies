@@ -21,6 +21,7 @@
 <meta charset="utf-8" />
 <script src="http://cdn.robotwebtools.org/EventEmitter2/current/eventemitter2.min.js"></script>
 <script src="http://cdn.robotwebtools.org/roslibjs/current/roslib.min.js"></script>
+<script src="https://d3js.org/d3.v4.min.js"></script>
 <script src="http://code.jquery.com/jquery-1.4.4.min.js"></script>
 <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 <script>
@@ -47,7 +48,6 @@
 	var imuGuage = null;
 	var dx = 10;
 	var dy = 10;
-	
 
 	// On page load..
 	$(function() {
@@ -194,24 +194,67 @@
 			imuGuage.setValue(message.angular_velocity.z);
 		});
 		
-		// Monitor the Occupancy Grid Topic
-		function refreshMap() {
-			$("#map-holder").html($("#map-holder").html());
-		}
+		// Monitor the Occupancy Grid and April Tags Topic
+		var occupancyGrid = new ROSLIB.Topic({
+			ros : ros,
+			name : '/map',
+			messageType : 'nav_msgs/OccupancyGrid'
+		});
+		var aprilTagsPoses = new ROSLIB.Topic({
+			ros : ros,
+			name : '/aprilTagPoses',
+			messageType : 'geometry_msgs/PoseArray'
+		});
 		
+		// Drawing the Occupancy Grid
 		function drawGrid(rows, cols, tileLength, occupancyPercentages) {
-			var gridSvg = $("#occupancy-grid");
-			gridSvg.empty();
+			var gridSvg = d3.select("#occupancy-grid");
+			gridSvg.selectAll("*").remove();
 			for (var y=0; y<rows; y++) {
 				var occupancyRow = rows - y - 1; // Flip the rows vertically
 				var rowStartIndex = occupancyRow * cols;
 				for (var x=0; x<cols; x++) {
 					var occupancyIndex = rowStartIndex + x;
 					var occupancyProbability = occupancyPercentages[occupancyIndex]/100.0;
-					gridSvg.append("<rect x='" + x * tileLength + "' y='" + y * tileLength + "' width='" + tileLength + "' height='" + tileLength + "' opacity='" + occupancyProbability + "'/>");
+					gridSvg.append("rect")
+						.attr("x", x * tileLength)
+						.attr("y", y * tileLength)
+						.attr("width", tileLength)
+						.attr("height", tileLength)
+						.attr("opacity", occupancyProbability);
 				}
 			}
 		}
+		
+		function scaleRealWorld(pixelsPerMetre) {
+			d3.select("#real-world").attr("transform", "scale(" + pixelsPerMetre + ")");
+		}
+		
+		var mapHeightInMetres = -1;
+		
+		function flipY(yMetres) {
+			return mapHeightInMetres - yMetres; // Flip the y-coordinate between real-world and SVG values.
+		}
+		
+		function asDegrees(radians) {
+			return radians * 180.0 / Math.PI;
+		}
+
+		// Drawing the April Tags
+		var drawAprilTags = function(message) {
+			var aprilTagsSvg = d3.select("#april-tags");
+			aprilTagsSvg.selectAll("*").remove();
+			aprilTagsSvg.selectAll("use").data(message.poses)
+				.enter().append("use")
+					.attr("xlink:href", "#april-tag")
+					.attr("id", function(pose, index) {return "april-tag-" + index})
+					.attr("x", function(pose) {return pose.position.x})
+					.attr("y", function(pose) {return flipY(pose.position.y)}) 
+					.attr("transform", function(pose) {return "rotate(" + (-asDegrees(pose.orientation.z)) + " " + pose.position.x + " " + flipY(pose.position.y) + ")"})
+				.append("title").text(function(pose, index) {return "April tag index " + index + ", located at (" + pose.position.x + "," + pose.position.y + "), rotated by " + pose.orientation.z + " radians (" + asDegrees(pose.orientation.z) + " degrees)."});
+		}
+		
+		var mapSubscriptionsHaveBeenCreated = false;
 		
 		var drawMap = function(message) {
 			var occupancyPercentages = message.data;
@@ -222,27 +265,32 @@
 			var width = isPortrait ? LONGEST_MAP_SIDE * aspectRatio : LONGEST_MAP_SIDE;
 			var height = isPortrait ? LONGEST_MAP_SIDE : LONGEST_MAP_SIDE / aspectRatio;
 			var tileLength = width / cols;
+			var resolution = message.info.resolution;
+			var pixelsPerMetre = tileLength/resolution;
 			
-			var mapSvg = $("svg#map");
-			mapSvg.width(width);
-			mapSvg.height(height);
+			d3.select("svg#map")
+				.attr("width", width)
+				.attr("height", height);
 			
-			$("#messages").empty();
+			d3.select("#no-map-message").remove();
 			
 			drawGrid(rows, cols, tileLength, occupancyPercentages);
 			
-			refreshMap();
+			scaleRealWorld(pixelsPerMetre);
+			
+			// Only subscribe to the other map topics once the map height is known (we need to know this so that we can flip the y-coordinates when drawing other details).
+			mapHeightInMetres = rows * resolution;
+			if (!mapSubscriptionsHaveBeenCreated) {
+				aprilTagsPoses.subscribe(drawAprilTags); 
+				mapSubscriptionsHaveBeenCreated = true;
+			}
 		};
 		
-		var occupancyGrid = new ROSLIB.Topic({
-			ros : ros,
-			name : '/map',
-			messageType : 'nav_msgs/OccupancyGrid'
-		});
 		occupancyGrid.subscribe(drawMap);
 		
 		// For dev testing
-		// drawMap({info: {height : 8, resolution : 0.20000000298023224, width : 4}, data: [100, 0, 100, 100,100, 0, 0, 100,100, 100, 0, 100,100, 0, 0, 100,100, 0, 100, 100,100, 0, 0, 100,100, 100, 0, 100,0, 100, 0, 100] });
+		//drawMap({info: {height : 8, resolution : 0.20000000298023224, width : 4}, data: [100, 0, 100, 100,100, 0, 0, 100,100, 100, 0, 100,100, 0, 0, 100,100, 0, 100, 100,100, 0, 0, 100,100, 100, 0, 100,0, 100, 0, 100] });
+		//drawAprilTags({poses: [{position:{x:0.3,y:0.5}, orientation: {z:1.570796}}, {position:{x:0.6,y:0.3}, orientation: {z:0.0}}] });
 	});
 </script>
 <style type="text/css">
@@ -256,13 +304,18 @@
 	.num-label {
 	  width: 60px;
 	}
-	svg#map rect {
+	#occupancy-grid rect {
 	  stroke: black;
-	  fill: red
+	  fill: red;
+	}
+	#april-tag rect {
+	  stroke-width: 0.001;
+	  stroke: black;
+	  fill: #AAAAAA;
 	}
 	.warning {
 	  fill: red;
-	  font-size: 12pt
+	  font-size: 12pt;
 	}
 </style>
 </head>
@@ -316,10 +369,22 @@
 			<td>
 				<div id="map-holder">
 					<svg id="map" xmlns="http://www.w3.org/2000/svg">
+						<!-- Approximate shape scale: 1 SVG pixel = 1mm in the robot world. -->
+						<defs>
+							<g id="april-tag">
+								<rect x="-0.0" y="-0.05" width="0.02" height="0.1"/>
+								<rect x="-0.01" y="-0.02" width="0.01" height="0.04"/>
+							</g>
+						</defs>
 						<g id="messages">
 							<text id="no-map-message" x="10" y="50" class="warning">No Map Data Received</text>
 						</g>
 						<g id="occupancy-grid"/>
+						<g id="real-world">
+							<g id="april-tags">
+								<use xlink:href="#april-tag" id="april-tag-0" x="0.1" y="0.1" />
+							</g>
+						</g>
 					</svg>
 				</div>
 			</td>
