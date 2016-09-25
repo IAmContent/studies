@@ -205,6 +205,10 @@
 			name : '/aprilTagPoses',
 			messageType : 'geometry_msgs/PoseArray'
 		});
+		var estimatedPose = new ROSLIB.Topic({
+			ros : ros,
+			name : '/estimatedPose',
+		});
 		
 		// Drawing the Occupancy Grid
 		function drawGrid(rows, cols, tileLength, occupancyPercentages) {
@@ -240,23 +244,31 @@
 			return radians * 180.0 / Math.PI;
 		}
 
+		function asTransform(pose) {
+			return "translate(" + pose.position.x + "," + flipY(pose.position.y) + ") "
+                 + "rotate(" + (-asDegrees(pose.orientation.z)) + ")";
+		}
+
 		// Drawing the April Tags
-		var drawAprilTags = function(message) {
+		function drawAprilTags(message) {
 			var aprilTagsSvg = d3.select("#april-tags");
 			aprilTagsSvg.selectAll("*").remove();
 			aprilTagsSvg.selectAll("use").data(message.poses)
 				.enter().append("use")
-					.attr("xlink:href", "#april-tag")
+					.attr("xlink:href", "#april-tag-def")
 					.attr("id", function(pose, index) {return "april-tag-" + index})
-					.attr("x", function(pose) {return pose.position.x})
-					.attr("y", function(pose) {return flipY(pose.position.y)}) 
-					.attr("transform", function(pose) {return "rotate(" + (-asDegrees(pose.orientation.z)) + " " + pose.position.x + " " + flipY(pose.position.y) + ")"})
+					.attr("transform", asTransform)
 				.append("title").text(function(pose, index) {return "April tag index " + index + ", located at (" + pose.position.x + "," + pose.position.y + "), rotated by " + pose.orientation.z + " radians (" + asDegrees(pose.orientation.z) + " degrees)."});
+		}
+
+		// Re-posing the robot
+		function reposeRobot(pose) {
+			d3.select("#robot").attr("transform", asTransform(pose));
 		}
 		
 		var mapSubscriptionsHaveBeenCreated = false;
 		
-		var drawMap = function(message) {
+		function drawMap(message) {
 			var occupancyPercentages = message.data;
 			var rows = message.info.height;
 			var cols = message.info.width;
@@ -287,10 +299,12 @@
 		};
 		
 		occupancyGrid.subscribe(drawMap);
+		estimatedPose.subscribe(reposeRobot);
 		
 		// For dev testing
-		//drawMap({info: {height : 8, resolution : 0.20000000298023224, width : 4}, data: [100, 0, 100, 100,100, 0, 0, 100,100, 100, 0, 100,100, 0, 0, 100,100, 0, 100, 100,100, 0, 0, 100,100, 100, 0, 100,0, 100, 0, 100] });
-		//drawAprilTags({poses: [{position:{x:0.3,y:0.5}, orientation: {z:1.570796}}, {position:{x:0.6,y:0.3}, orientation: {z:0.0}}] });
+		drawMap({info: {height : 8, resolution : 0.20000000298023224, width : 4}, data: [100, 0, 100, 100,100, 0, 0, 100,100, 100, 0, 100,100, 0, 0, 100,100, 0, 100, 100,100, 0, 0, 100,100, 100, 0, 100,0, 100, 0, 100] });
+		drawAprilTags({poses: [{position:{x:0.3,y:0.5}, orientation: {z:1.570796}}, {position:{x:0.6,y:0.3}, orientation: {z:0.0}}] });
+		reposeRobot({position:{x:0.3,y:0.2}, orientation: {z:1.570796}});
 	});
 </script>
 <style type="text/css">
@@ -308,10 +322,25 @@
 	  stroke: black;
 	  fill: red;
 	}
-	#april-tag rect {
+	#april-tag-def rect {
 	  stroke-width: 0.001;
 	  stroke: black;
 	  fill: #AAAAAA;
+	}
+	.robot-chassis {
+	  stroke-width: 0.002;
+	  stroke: black;
+	  fill: #3399FF;
+	}
+	.robot-wheels {
+	  stroke: none;
+	  fill: black;
+	}
+	.visual-field {
+	  stroke-width: 0.002;
+	  stroke: black;
+	  fill: #888888;
+	  opacity: 0.5;
 	}
 	.warning {
 	  fill: red;
@@ -371,9 +400,18 @@
 					<svg id="map" xmlns="http://www.w3.org/2000/svg">
 						<!-- Approximate shape scale: 1 SVG pixel = 1mm in the robot world. -->
 						<defs>
-							<g id="april-tag">
+							<g id="april-tag-def">
 								<rect x="-0.0" y="-0.05" width="0.02" height="0.1"/>
 								<rect x="-0.01" y="-0.02" width="0.01" height="0.04"/>
+							</g>
+							<g id="robot-def">
+								<rect class="robot-wheels" x="-0.003" y="-0.047" width="0.006" height="0.094" />
+								<rect class="robot-wheels" id="left-wheel"  x="-0.032" y="-0.054" width="0.06" height="0.007" />
+								<rect class="robot-wheels" id="right-wheel" x="-0.032" y="0.047"  width="0.06" height="0.007" />
+								<polygon class="robot-chassis" points="-0.03,-0.037 0.124,-0.037 0.154,-0.022 0.154,0.022 0.124,0.037 -0.03,0.037"/>
+								<g class="visual-field" transform="translate(0.154,0)">
+									<path d="M0,0 L0.8,0.6 A1.0,1.0 0,0 0.8,-0.6 L0,0"/>
+								</g>
 							</g>
 						</defs>
 						<g id="messages">
@@ -381,8 +419,9 @@
 						</g>
 						<g id="occupancy-grid"/>
 						<g id="real-world">
-							<g id="april-tags">
-								<use xlink:href="#april-tag" id="april-tag-0" x="0.1" y="0.1" />
+							<g id="april-tags"/>
+							<g id="robot">
+								<use xlink:href="#robot-def"/>
 							</g>
 						</g>
 					</svg>
