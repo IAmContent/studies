@@ -241,14 +241,17 @@
 		}
 		
 		function asDegrees(radians) {
-			return radians * 180.0 / Math.PI;
+			return precis(radians * 180.0 / Math.PI);
 		}
 
 		function asTransform(pose) {
 			return "translate(" + pose.position.x + "," + flipY(pose.position.y) + ") "
                  + "rotate(" + (-asDegrees(pose.orientation.z)) + ")";
 		}
-
+		
+		function poseDescription(pose) {
+			return "(" + pose.position.x + "," + pose.position.y + "), rotated by " + pose.orientation.z + " radians (" + asDegrees(pose.orientation.z) + " degrees).";
+		}
 		// Drawing the April Tags
 		function drawAprilTags(message) {
 			var aprilTagsSvg = d3.select("#april-tags");
@@ -258,12 +261,15 @@
 					.attr("xlink:href", "#april-tag-def")
 					.attr("id", function(pose, index) {return "april-tag-" + index})
 					.attr("transform", asTransform)
-				.append("title").text(function(pose, index) {return "April tag index " + index + ", located at (" + pose.position.x + "," + pose.position.y + "), rotated by " + pose.orientation.z + " radians (" + asDegrees(pose.orientation.z) + " degrees)."});
+				.append("title").text(function(pose, index) {return "April tag index " + index + ", located at " + poseDescription(pose)});
 		}
 
 		// Re-posing the robot
 		function reposeRobot(pose) {
-			d3.select("#robot").attr("transform", asTransform(pose));
+			var robot = d3.select("#robot");
+			robot.attr("transform", asTransform(pose));
+			robot.select("title").text("Robot estimated at " + poseDescription(pose));
+
 		}
 		
 		var mapSubscriptionsHaveBeenCreated = false;
@@ -341,6 +347,7 @@
 	  stroke: black;
 	  fill: #888888;
 	  opacity: 0.5;
+	  pointer-events: none;
 	}
 	.warning {
 	  fill: red;
@@ -422,6 +429,7 @@
 							<g id="april-tags"/>
 							<g id="robot">
 								<use xlink:href="#robot-def"/>
+								<title>Robot</title>
 							</g>
 						</g>
 					</svg>
