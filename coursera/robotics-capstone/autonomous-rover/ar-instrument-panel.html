@@ -208,6 +208,7 @@
 		var estimatedPose = new ROSLIB.Topic({
 			ros : ros,
 			name : '/estimatedPose',
+			messageType : 'geometry_msgs/Pose'
 		});
 		
 		// Drawing the Occupancy Grid
@@ -308,9 +309,9 @@
 		estimatedPose.subscribe(reposeRobot);
 		
 		// For dev testing
-		drawMap({info: {height : 8, resolution : 0.20000000298023224, width : 4}, data: [100, 0, 100, 100,100, 0, 0, 100,100, 100, 0, 100,100, 0, 0, 100,100, 0, 100, 100,100, 0, 0, 100,100, 100, 0, 100,0, 100, 0, 100] });
-		drawAprilTags({poses: [{position:{x:0.3,y:0.5}, orientation: {z:1.570796}}, {position:{x:0.6,y:0.3}, orientation: {z:0.0}}] });
-		reposeRobot({position:{x:0.3,y:0.2}, orientation: {z:1.570796}});
+		//drawMap({info: {height : 8, resolution : 0.20000000298023224, width : 4}, data: [100, 0, 100, 100,100, 0, 0, 100,100, 100, 0, 100,100, 0, 0, 100,100, 0, 100, 100,100, 0, 0, 100,100, 100, 0, 100,0, 100, 0, 100] });
+		//drawAprilTags({poses: [{position:{x:0.3,y:0.5}, orientation: {z:1.570796}}, {position:{x:0.6,y:0.3}, orientation: {z:0.0}}] });
+		//reposeRobot({position:{x:0.3,y:0.2}, orientation: {z:1.570796}});
 	});
 </script>
 <style type="text/css">
@@ -427,7 +428,7 @@
 						<g id="occupancy-grid"/>
 						<g id="real-world">
 							<g id="april-tags"/>
-							<g id="robot">
+							<g id="robot" transform="translate(-1000, -1000)">
 								<use xlink:href="#robot-def"/>
 								<title>Robot</title>
 							</g>
