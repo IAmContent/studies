@@ -1,0 +1,6 @@
+38a39,41
+>         # Added for web monitoring
+>         self.ros_interface.publishMap(world_map,occupancy_map,x_spacing)
+> 
+66a70
+>         self.ros_interface.publishEstimatedPose(state[0],state[1],state[2])
