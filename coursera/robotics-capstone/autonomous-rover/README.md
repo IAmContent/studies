@@ -25,7 +25,7 @@ Download the HTML file to your local PC, search for the line containing ROBOT\_I
 ## Python Changes (Once Only)
 In order to publish the map and estimated pose, you'll have to make a few changes to the code (RosInterface.py and RobotControl.py). There are two two diff files: [RosInterface.diff](./RosInterface.diff) and [RobotControl.diff](./RobotControl.diff) for these changes. Needless to say, the line numbers in the diff files may not correspond to your versions, but the changes are:
 
-###RosInterface.py:###
+### RosInterface.py: ###
 
 1 - Import the ROS message types that we'll use.
 
@@ -72,7 +72,7 @@ In order to publish the map and estimated pose, you'll have to make a few change
 		result.data = occupancy_map.flatten() * 100
 		return result
 
-###RobotControl.py:###
+### RobotControl.py: ###
 
 1 - Publish the map and April tag data (in the constructor method of RobotControl).
 
